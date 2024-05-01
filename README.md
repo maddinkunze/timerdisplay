@@ -9,6 +9,7 @@ Buttons/Buzzers can either be connected to the following pins:
 | 34  | Stop          |
 | 39  | Reset         |
 
+or via a wireless connection.
 
 ## Modes
 
@@ -21,7 +22,7 @@ Pressing the start button a second time after the timer has started will reset t
 
 ### Start/Stop/Reset
 
-Similar to _Start/Stop_, except pressing the start button will never reset the timer. An additional button has to be connected as the reset button, that will reset the timers display to zero when pressed and the timer either is currently either measuring or displaying the final time. The start button will only start the timer after it has been resetted using the reset button.
+Similar to _Start/Stop_, except pressing the start button will never reset the timer. An additional button has to be connected as the reset button, that will reset the timers display to zero when pressed and the timer is currently either measuring or displaying the final time. The start button will only start the timer after it has been resetted using the reset button.
 
 `IM_START_STOP_RESET = 1`
 

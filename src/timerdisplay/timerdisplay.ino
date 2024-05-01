@@ -88,6 +88,7 @@ typedef enum {
 } interaction_mode_t;
 
 interaction_mode_t mode = IM_START_STOP;
+unsigned long showModeUntil = 0;
 
 #define PIN_START 35 // Button 1
 #define PIN_STOP 34  // Button 2
@@ -135,16 +136,16 @@ void printTag(int color, char* text, int textcolor, int textoffset) {
 }
 
 void printCurrentTime() {
-  unsigned long actualTimeEnd = timeStart ? (timeEnd ? timeEnd : millis()) : 0;
+  unsigned long actualTimeEnd = isStarted() ? (isStopped() ? timeEnd : millis()) : 0;
   printTime(actualTimeEnd - timeStart);
 }
 
 void printCurrentTag() {
-  if (timeEnd) {
+  if (isStopped()) {
     printTag(LED_BLUE_HIGH, "Time", LED_BLACK, -2);
     return;
   }
-  if (timeStart) {
+  if (isStarted()) {
     printTag(LED_GREEN_HIGH, "Go! ", LED_BLACK);
     return;
   }
@@ -165,10 +166,41 @@ void printCurrentTag() {
   }
 }
 
+void printCurrentMode() {
+  char* modeText = nullptr;
+  switch (mode) {
+    case IM_START_STOP:
+      modeText = "Start/Stop";
+      break;
+    case IM_START_STOP_RESET:
+      modeText = "Start/Stop/Reset";
+      break;
+    case IM_TOGGLE:
+      modeText = "Toggle";
+      break;
+    case IM_TOGGLE_RESET:
+      modeText = "Toggle + Reset";
+      break;
+  }
+  if (!modeText) { return; }
+
+  int16_t tx, ty; uint16_t tw, th;
+  matrix->getTextBounds(text, 0, 0, &tx, &tx, &tw, &th);
+  matrix->fillRect(0, 0, tw+4, th+2, LED_BLACK);
+  matrix->setCursor(2, 1);
+  matrix->print(modeText);
+}
+
+void printCurrentModeIfNeeded() {
+  if (millis() > showModeUntil) { return; }
+  printCurrentMode();
+}
+
 void loop() {
   matrix->clear();
   printCurrentTime();
   printCurrentTag();
+  printCurrentModeIfNeeded();
   matrix->show();
 }
 
@@ -285,6 +317,7 @@ void IRAM_ATTR verifyMode() {
 void IRAM_ATTR nextMode() {
   timerReset();
   mode++;
+  showModeUntil = millis() + 5000;
   verifyMode();
   writeMode();
 }
@@ -325,6 +358,8 @@ void initDisplay() {
   matrix->setTextWrap(false);
   matrix->clear();
   matrix->show();
+
+  showModeUntil = millis() + 3000;
 }
 
 void initMode() {
