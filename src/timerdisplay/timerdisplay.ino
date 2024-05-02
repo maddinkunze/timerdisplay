@@ -4,6 +4,7 @@
 
 // WILL NOT FIT on ARDUINO UNO -- requires a Mega, M0 or M4 board
 
+#include <WiFi.h>
 #include <EEPROM.h>
 #include <esp_now.h>
 
@@ -11,6 +12,8 @@
 #include <Fonts/FreeSansBold12pt7b.h>
 #include <Fonts/FreeMonoBold18pt7b.h>
 #include <Fonts/FreeMonoBold24pt7b.h>
+
+#include <qrcode.h>
 
 #define TAG_BUTTONW_PREFIX "mad760:btn:"
 #define TAG_BUTTONW_START TAG_BUTTONW_PREFIX "start"
@@ -192,8 +195,17 @@ void printCurrentMode() {
 }
 
 void printCurrentModeIfNeeded() {
-  if (millis() > showModeUntil) { return; }
+  if (!shouldShowMode()) { return; }
   printCurrentMode();
+}
+
+void drawQrCode() {
+  matrix->drawBitmap(1, mh-QRCODE_HEIGHT, qrcode, QRCODE_WIDTH, QRCODE_HEIGHT, LED_WHITE_HIGH);
+}
+
+void drawQrCodeIfNeeded() {
+  if (!shouldShowMode()) { return }
+  drawQrCode();
 }
 
 void loop() {
@@ -202,6 +214,10 @@ void loop() {
   printCurrentTag();
   printCurrentModeIfNeeded();
   matrix->show();
+}
+
+bool IRAM_ATTR shouldShowMode() {
+  return millis() <= showModeUntil;
 }
 
 bool IRAM_ATTR isStarted() {
@@ -224,6 +240,12 @@ bool IRAM_ATTR isResetted() {
   return (timeStart == 0) 
       && (timeCountdownStart == 0) 
       && (timeEnd == 0);
+}
+
+bool IRAM_ATTR isBouncing(unsigned long* pressedTime) {
+  unsigned long pressedTimeLast = *pressedTime
+  *pressedTime = millis();
+  return (*pressedTime - pressedTimeLast) < 20;
 }
 
 void IRAM_ATTR timerStart() {
@@ -271,8 +293,9 @@ void IRAM_ATTR timerResetIfNotCountingDown() {
   timerReset();
 }
 
-
+unsigned long buttonStartPressedTime = 0;
 void IRAM_ATTR buttonStartPress() {
+  if (isBouncing(&buttonStartPressedTime)) { return; }
   switch (mode) {
     case IM_START_STOP:
       timerStart();
@@ -289,7 +312,9 @@ void IRAM_ATTR buttonStartPress() {
   }
 }
 
+unsigned long buttonStopPressedTime = 0;
 void IRAM_ATTR buttonStopPress() {
+  if (isBouncing(&buttonStopPressedTime)) { return; }
   switch (mode) {
     case IM_START_STOP:
     case IM_START_STOP_RESET:
@@ -297,7 +322,9 @@ void IRAM_ATTR buttonStopPress() {
   }
 }
 
+unsigned long buttonResetPressedTime = 0;
 void IRAM_ATTR buttonResetPress() {
+  if (isBouncing(&buttonResetPressedTime)) { return; }
   switch (mode) {
     case IM_START_STOP_RESET:
     case IM_TOGGLE_RESET:
@@ -315,15 +342,26 @@ void IRAM_ATTR verifyMode() {
 }
 
 void IRAM_ATTR nextMode() {
+  if (!shouldShowMode()) {
+    showModeFor(10000);
+    return;
+  }
+
   timerReset();
   mode++;
-  showModeUntil = millis() + 5000;
+  showModeFor(5000);
   verifyMode();
   writeMode();
 }
 
+void IRAM_ATTR showModeFor(unsigned long duration) {
+  showModeUntil = max(showModeUntil, millis() + duration);
+}
 
+
+unsigned long buttonModePressedTime = 0;
 void IRAM_ATTR buttonModePress() {
+  if (isBouncing(&buttonModePressedTime)) { return; }
   nextMode();
 }
 
@@ -350,6 +388,9 @@ void wirelessDataReceived(const uint8_t* mac, const uint8_t* data, int len) {
 }
 
 void initWireless() {
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+
   esp_now_register_recv_cb(wirelessDataReceived);
 }
 
@@ -359,7 +400,7 @@ void initDisplay() {
   matrix->clear();
   matrix->show();
 
-  showModeUntil = millis() + 3000;
+  showModeFor(3000);
 }
 
 void initMode() {

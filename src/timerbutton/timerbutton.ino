@@ -1,4 +1,9 @@
+#ifdef ESP32
 #include <esp_now.h>
+#else
+#include <ESP8266WiFi.h>
+#include <espnow.h>
+#endif
 
 #define PIN_BUTTON 34 // TODO: find correct pin
 #define PIN_MODE1 35 // TODO: find correct pin
@@ -47,6 +52,9 @@ void IRAM_ATTR buttonPressed() {
 }
 
 void setup() {
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+
   pinMode(PIN_BUTTON, INPUT_PULLUP);
   attachInterrupt(PIN_BUTTON, buttonPressed, FALLING);
 
